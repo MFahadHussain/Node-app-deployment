@@ -1,26 +1,45 @@
-name: Deploy to EC2
+name: Deploy Node.js App to EC2
 
 on:
   push:
     branches: [ main ]
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Executing remote SSH commands
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies & Build
+        run: |
+          npm ci
+          # Uncomment if your project has a build script (e.g., Next.js or TypeScript compilation)
+          # npm run build
+
+      - name: Deploy to AWS EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.EC2_HOST }}        # Your EC2 Public IP or Domain
-          username: ubuntu                     # Standard Ubuntu AMI username
+          host: ${{ secrets.EC2_HOST }}        # Your EC2 Public IPv4 address
+          username: ubuntu                     # Standard Ubuntu AMI user
           key: ${{ secrets.EC2_SSH_KEY }}      # Your private SSH key stored in GitHub Secrets
           script: |
-            cd /var/www/fastapi-project
+            cd /var/www/Node-app-deployment            # Path to your Node app on the server
             git pull origin main
-            sudo docker build --no-cache -t fastapi-app .
-            sudo docker stop fastapi-container 2>/dev/null || true
-            sudo docker rm fastapi-container 2>/dev/null || true
-            sudo docker run -d -p 8000:8000 --name fastapi-container --restart unless-stopped fastapi-app
+            npm ci --production                # Install only production dependencies on the server
+            
+            # If running via PM2:
+            pm2 restart node-app || pm2 start server.js --name node-app
+            
+            # OR if running via Docker (uncomment if using Docker for Node):
+            # sudo docker build --no-cache -t node-app .
+            # sudo docker stop node-container 2>/dev/null || true
+            # sudo docker rm node-container 2>/dev/null || true
+            # sudo docker run -d -p 3000:3000 --name node-container --restart unless-stopped node-app
