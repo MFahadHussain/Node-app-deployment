@@ -1,6 +1,9 @@
-From node:26-alpine
+FROM node:26-alpine
 WORKDIR /app
-COPY . .
+COPY package*.json ./
 RUN npm install
+COPY . .
 EXPOSE 3000
+ENV NODE_ENV=production
+ENV PORT=3000
 CMD ["node", "server.js"]
